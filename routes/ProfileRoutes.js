@@ -4,7 +4,7 @@ const path = require('path');
 const Profile = require('../models/Profile');
 const router = express.Router();
 
-// Configure multer for file uploads
+// Configure multer for file uploads middlw ware for handling data
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/'); // Ensure this directory exists
@@ -43,6 +43,7 @@ router.post('/api/user/profile/create', upload.single('profileImage'), async (re
     });
 
     await newProfile.save();
+    console.log(newProfile);
     res.status(201).json({ profile: newProfile });
   } catch (error) {
     res.status(500).json({ message: error.message });
