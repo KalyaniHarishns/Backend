@@ -3,8 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const Profile = require('../models/Profile');
 const router = express.Router();
-
-// Configure multer for file uploads middlw ware for handling data
+// Configure multer for file uploads middle ware for handling data
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/'); // Ensure this directory exists
@@ -31,7 +30,7 @@ router.get('/', async (req, res) => {
 });
 
 // Create new profile
-router.post('/api/user/profile/create', upload.single('profileImage'), async (req, res) => {
+router.post('http://localhost:5000/api/user/profile/create', upload.single('profileImage'), async (req, res) => {
   try {
     const newProfile = new Profile({
       firstName: req.body.firstName,
@@ -51,7 +50,7 @@ router.post('/api/user/profile/create', upload.single('profileImage'), async (re
 });
 
 // Update or create profile
-router.put('/api/user/profile/Update', upload.single('profileImage'), async (req, res) => {
+router.put('http://localhost:5000/api/user/profile/Update', upload.single('profileImage'), async (req, res) => {
   try {
     const updatedProfile = {
       firstName: req.body.firstName,
@@ -70,7 +69,7 @@ router.put('/api/user/profile/Update', upload.single('profileImage'), async (req
 });
 
 // Delete profile
-router.delete('/api/user/profile/Delete', async (req, res) => {
+router.delete('http://localhost:5000/api/user/profile/Delete', async (req, res) => {
   try {
     await Profile.deleteOne({});
     res.json({ message: 'Profile removed successfully' });

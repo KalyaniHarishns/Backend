@@ -84,8 +84,7 @@ exports.removeProfile = async (req, res) => {
     if (profile && profile.profileImage) {
       fs.unlinkSync(profile.profileImage); // Delete the image file
     }
-
-    await Profile.findByIdAndDelete(_id);
+     await Profile.findByIdAndDelete(_id);
     res.json({ success: true, message: 'Profile removed successfully' });
   } catch (error) {
     console.error('Error removing profile:', error);
