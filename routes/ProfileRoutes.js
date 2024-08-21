@@ -3,7 +3,8 @@ const multer = require('multer');
 const path = require('path');
 const Profile = require('../models/Profile');
 const router = express.Router();
-// Configure multer for file uploads middle ware for handling data
+
+// Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/'); // Ensure this directory exists
@@ -18,7 +19,6 @@ const upload = multer({ storage: storage });
 router.get('/', async (req, res) => {
   try {
     const profile = await Profile.findOne();
-    console.log('Fetched profile:', profile);
     if (profile) {
       res.json({ profile });
     } else {
@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
 });
 
 // Create new profile
-router.post('http://localhost:5000/api/user/profile/create', upload.single('profileImage'), async (req, res) => {
+router.post('/create', upload.single('profileImage'), async (req, res) => {
   try {
     const newProfile = new Profile({
       firstName: req.body.firstName,
@@ -42,7 +42,6 @@ router.post('http://localhost:5000/api/user/profile/create', upload.single('prof
     });
 
     await newProfile.save();
-    console.log(newProfile);
     res.status(201).json({ profile: newProfile });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -50,7 +49,7 @@ router.post('http://localhost:5000/api/user/profile/create', upload.single('prof
 });
 
 // Update or create profile
-router.put('http://localhost:5000/api/user/profile/Update', upload.single('profileImage'), async (req, res) => {
+router.put('/update', upload.single('profileImage'), async (req, res) => {
   try {
     const updatedProfile = {
       firstName: req.body.firstName,
@@ -69,7 +68,7 @@ router.put('http://localhost:5000/api/user/profile/Update', upload.single('profi
 });
 
 // Delete profile
-router.delete('http://localhost:5000/api/user/profile/Delete', async (req, res) => {
+router.delete('/delete', async (req, res) => {
   try {
     await Profile.deleteOne({});
     res.json({ message: 'Profile removed successfully' });
