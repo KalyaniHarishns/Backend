@@ -32,18 +32,22 @@ router.get('/', async (req, res) => {
 // Create new profile
 router.post('/create', upload.single('profileImage'), async (req, res) => {
   try {
+    console.log("Request Body:", req.body);
+    console.log("Uploaded File:", req.file);
+
     const newProfile = new Profile({
       firstName: req.body.firstName,
       lastName: req.body.lastName,
       email: req.body.email,
-      password: req.body.password, // Ensure this is hashed before storing in a real application
+      password: req.body.password,
       phoneNumber: req.body.phoneNumber,
-      profileImage: req.file ? req.file.path : undefined // Optional profile image
+      profileImage: req.file ? req.file.path : undefined
     });
 
     await newProfile.save();
     res.status(201).json({ profile: newProfile });
   } catch (error) {
+    console.error("Error creating profile:", error);
     res.status(500).json({ message: error.message });
   }
 });
