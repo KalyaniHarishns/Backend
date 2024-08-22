@@ -1,4 +1,4 @@
-const Profile = require('../models/profileModel');
+const Profile = require('../models/Profile');
 const fs = require('fs');
 
 // Middleware for file upload handling
