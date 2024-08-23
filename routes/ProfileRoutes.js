@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const Profile = require('../models/Profile');
+const authenticateToken = require('../Middlewares/authenticateToken'); // Ensure correct file name
 const router = express.Router();
 
 // Configure multer for file uploads
@@ -15,10 +16,10 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Fetch profile data
-router.get('/', async (req, res) => {
+// Fetch profile (protected)
+router.get('/', authenticateToken, async (req, res) => {
   try {
-    const profile = await Profile.findOne();
+    const profile = await Profile.findOne({ userId: req.user.id }); // Find profile by user ID
     if (profile) {
       res.json({ profile });
     } else {
@@ -29,17 +30,15 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Create new profile
-router.post('/create', upload.single('profileImage'), async (req, res) => {
+// Create or update profile (protected)
+router.post('/create', authenticateToken, upload.single('profileImage'), async (req, res) => {
   try {
-    console.log("Request Body:", req.body);
-    console.log("Uploaded File:", req.file);
-
     const newProfile = new Profile({
+      userId: req.user.id, // Associate profile with the authenticated user
       firstName: req.body.firstName,
       lastName: req.body.lastName,
       email: req.body.email,
-      password: req.body.password,
+      password: req.body.password, // Ensure this is hashed
       phoneNumber: req.body.phoneNumber,
       profileImage: req.file ? req.file.path : undefined
     });
@@ -47,35 +46,42 @@ router.post('/create', upload.single('profileImage'), async (req, res) => {
     await newProfile.save();
     res.status(201).json({ profile: newProfile });
   } catch (error) {
-    console.error("Error creating profile:", error);
     res.status(500).json({ message: error.message });
   }
 });
 
-// Update or create profile
-router.put('/update', upload.single('profileImage'), async (req, res) => {
+// Update profile (protected)
+router.put('/update', authenticateToken, upload.single('profileImage'), async (req, res) => {
   try {
     const updatedProfile = {
       firstName: req.body.firstName,
       lastName: req.body.lastName,
       email: req.body.email,
-      password: req.body.password, // Ensure this is hashed before storing in a real application
+      password: req.body.password, // Ensure this is hashed
       phoneNumber: req.body.phoneNumber,
       profileImage: req.file ? req.file.path : req.body.profileImage
     };
 
-    const profile = await Profile.findOneAndUpdate({}, updatedProfile, { new: true, upsert: true });
-    res.json({ profile });
+    const profile = await Profile.findOneAndUpdate({ userId: req.user.id }, updatedProfile, { new: true });
+    if (profile) {
+      res.json({ profile });
+    } else {
+      res.status(404).json({ message: 'Profile not found' });
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Delete profile
-router.delete('/delete', async (req, res) => {
+// Delete profile (protected)
+router.delete('/delete', authenticateToken, async (req, res) => {
   try {
-    await Profile.deleteOne({});
-    res.json({ message: 'Profile removed successfully' });
+    const result = await Profile.deleteOne({ userId: req.user.id });
+    if (result.deletedCount > 0) {
+      res.json({ message: 'Profile removed successfully' });
+    } else {
+      res.status(404).json({ message: 'Profile not found' });
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
