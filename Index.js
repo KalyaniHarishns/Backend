@@ -1,19 +1,18 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
+const User = require('./models/User'); // Import the User model
 const bcrypt = require('bcryptjs');
-const LoginRoutes=require('./routes/LoginRoutes');
-const authenticateToken = require('./Middlewares/authenticateToken');
 const app = express();
-const profileRoutes = require('./routes/ProfileRoutes');
-const authroutes=require('./routes/authroutes')
 const port = process.env.PORT || 3001;
-const mongoose=require('mongoose');
-// CORS configuration
+
+app.use(express.json());
+app.use(cors());
 app.use(cors({
-  origin: 'http://localhost:3000' // Replace with your frontend URL
+  origin: 'http://localhost:3000' 
 }));
+
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/demo';
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
@@ -21,25 +20,34 @@ mongoose.connect(MONGO_URI, {
 })
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB connection error:', err));
+
 app.use(bodyParser.json());
 
-// In-memory user store (replace with a database in production)
-const users = [];
-
-// JWT secret key (should be in an environment variable)
-const JWT_SECRET = 'mySuperSecretKey123!@#';
-
 // Sign Up endpoint
-app.post('/api/auth/signup', (req, res) => {
-  const { email, password } = req.body;
-
-  if (users.find(user => user.email === email)) {
-    return res.status(400).json({ message: 'User already exists' });
+app.post('/api/auth/signup', async (req, res) => {
+  const { name, email, password } = req.body;
+  
+  if (password.length < 6) {
+    return res.status(400).json({ message: 'Password should have a minimum of 6 characters.' });
+  }
+  if (!/[A-Z]/.test(password)) {
+    return res.status(400).json({ message: 'Password should have at least one uppercase letter.' });
+  }
+  if (!/[a-z]/.test(password)) {
+    return res.status(400).json({ message: 'Password should have at least one lowercase letter.' });
+  }
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    return res.status(400).json({ message: 'Password should have at least one special character.' });
   }
 
-  const hashedPassword = bcrypt.hashSync(password, 8);
-  users.push({ email, password: hashedPassword });
-  res.status(201).json({ message: 'User created' });
+  try {
+    const user = new User({ name, email, password });
+    await user.save();
+    res.status(201).json(user);
+  } catch (err) {
+    console.error('Error creating user:', err);
+    res.status(400).json({ message: 'Error creating user', error: err.message });
+  }
 });
 
 // Login endpoint
@@ -47,38 +55,24 @@ app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = users.find(u => u.email === email);
-
-    if (user && bcrypt.compareSync(password, user.password)) {
-      const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
-      res.json({ token });
+    const user = await User.findOne({ email });
+    if (user && await bcrypt.compare(password, user.password)) {
+      res.status(200).json({ message: 'Login successful' });
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
     }
-  } catch (error) {
-    res.status(500).json({ message: 'Error logging in', error: error.message });
+  } catch (err) {
+    console.error('Error during login:', err);
+    res.status(500).json({ message: 'Server error during login', error: err.message });
   }
 });
 
-// Protected Profile endpoint
+// Protected Profile endpoint (requires token-based authentication, if JWT was used)
 app.get('/api/profile', (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    res.json({ email: decoded.email });
-  } catch (error) {
-    res.status(401).json({ message: 'Invalid token' });
-  }
+  // This endpoint would require a token-based authentication (e.g., JWT) to be properly protected
+  // Example implementation without JWT authentication is commented out.
+  res.json({ message: 'Profile data would be here' });
 });
-app.use('/api/user/forgot-password', authroutes); // Password reset routes
-
-// Protected routes
-app.use('/api/user/profile', authenticateToken, profileRoutes); // Apply middleware to profile routes
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}/`);

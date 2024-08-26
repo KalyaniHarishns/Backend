@@ -4,7 +4,8 @@ const path = require('path');
 const Profile = require('../models/Profile');
 const authenticateToken = require('../Middlewares/authenticateToken'); // Ensure correct file name
 const router = express.Router();
-
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = 'mySuperSecretKey123!@#';
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
