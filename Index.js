@@ -2,17 +2,28 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const User = require('./models/User'); // Import the User model
 const bcrypt = require('bcryptjs');
-const app = express();
+const User = require('./models/User'); 
+const Profile = require('./models/Profile'); 
+const app1 = express();
+const multer = require('multer');
+const path = require('path');
 const port = process.env.PORT || 3001;
 
-app.use(express.json());
-app.use(cors());
-app.use(cors({
+app1.use(express.json());
+app1.use(cors({
   origin: 'http://localhost:3000' 
 }));
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
 
+const upload = multer({ storage });
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/demo';
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
@@ -21,10 +32,10 @@ mongoose.connect(MONGO_URI, {
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB connection error:', err));
 
-app.use(bodyParser.json());
+app1.use(bodyParser.json());
 
 // Sign Up endpoint
-app.post('/api/auth/signup', async (req, res) => {
+app1.post('/api/auth/signup', async (req, res) => {
   const { name, email, password } = req.body;
   
   if (password.length < 6) {
@@ -41,7 +52,8 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 
   try {
-    const user = new User({ name, email, password });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ name, email, password: hashedPassword });
     await user.save();
     res.status(201).json(user);
   } catch (err) {
@@ -51,7 +63,7 @@ app.post('/api/auth/signup', async (req, res) => {
 });
 
 // Login endpoint
-app.post('/api/auth/login', async (req, res) => {
+app1.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
@@ -67,13 +79,81 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Protected Profile endpoint (requires token-based authentication, if JWT was used)
-app.get('/api/profile', (req, res) => {
-  // This endpoint would require a token-based authentication (e.g., JWT) to be properly protected
-  // Example implementation without JWT authentication is commented out.
-  res.json({ message: 'Profile data would be here' });
+// Get User Profile
+app1.get('/api/profile', async (req, res) => {
+  try {
+    const profiles = await Profile.find();
+    res.json(profiles);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.listen(port, () => {
+app1.post('/api/profile', upload.single('profileImage'), async (req, res) => {
+  try {
+    const profileData = {
+      ...req.body,
+      profileImage: req.file ? req.file.path : null,
+    };
+    const newProfile = new Profile(profileData);
+    await newProfile.save();
+    res.status(201).json({
+      message: 'Profile created successfully',
+      profile: newProfile,
+    });
+  } catch (err) {
+    console.error('Error creating profile:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update Profile
+app1.put('/api/profile/:id', upload.single('profileImage'), async (req, res) => {
+  try {
+    const profileData = {
+      ...req.body,
+      profileImage: req.file ? req.file.path : null,
+    };
+
+    if (profileData.password) {
+      profileData.password = await bcrypt.hash(profileData.password, 10);
+    }
+
+    const updatedProfile = await Profile.findByIdAndUpdate(req.params.id, profileData, { new: true });
+    if (!updatedProfile) return res.status(404).json({ message: 'Profile not found' });
+
+    res.json({
+      message: 'Profile updated successfully',
+      profile: updatedProfile,
+    });
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app1.delete('/api/profile/:id', async (req, res) => {
+  try {
+    await Profile.findByIdAndDelete(req.params.id);
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// Delete User Profile
+app1.delete('/api/profile/:id', async (req, res) => {
+  try {
+    const profile = await Profile.findByIdAndDelete(req.params.id);
+    if (!profile) return res.status(404).json({ message: 'User not found' });
+    res.json({ message: 'User deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting profile:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+app1.listen(port, () => {
   console.log(`Server running at http://localhost:${port}/`);
 });
