@@ -107,7 +107,7 @@ app1.post('/api/profile', upload.single('profileImage'), async (req, res) => {
   }
 });
 
-// Update Profile
+
 app1.put('/api/profile/:id', upload.single('profileImage'), async (req, res) => {
   try {
     const profileData = {
