@@ -25,7 +25,7 @@ const ProfileSchema = new mongoose.Schema({
   }
 });
 
-// Hash password before saving the profile
+
 ProfileSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
 

@@ -34,7 +34,7 @@ mongoose.connect(MONGO_URI, {
 
 app1.use(bodyParser.json());
 
-// Sign Up endpoint
+
 app1.post('/api/auth/signup', async (req, res) => {
   const { name, email, password } = req.body;
   
@@ -62,7 +62,7 @@ app1.post('/api/auth/signup', async (req, res) => {
   }
 });
 
-// Login endpoint
+
 app1.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -79,7 +79,7 @@ app1.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Get User Profile
+
 app1.get('/api/profile', async (req, res) => {
   try {
     const profiles = await Profile.find();
