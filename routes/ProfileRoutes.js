@@ -1,90 +1,86 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const multer = require('multer');
-const path = require('path');
 const Profile = require('../models/Profile');
-const authenticateToken = require('../Middlewares/authenticateToken'); // Ensure correct file name
+const path = require('path');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-const JWT_SECRET = 'mySuperSecretKey123!@#';
-// Configure multer for file uploads
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Ensure this directory exists
+    cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + path.extname(file.originalname));
-  }
-});
-const upload = multer({ storage: storage });
-
-// Fetch profile (protected)
-router.get('/', authenticateToken, async (req, res) => {
-  try {
-    const profile = await Profile.findOne({ userId: req.user.id }); // Find profile by user ID
-    if (profile) {
-      res.json({ profile });
-    } else {
-      res.status(404).json({ message: 'Profile not found' });
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+  },
 });
 
-// Create or update profile (protected)
-router.post('/create', authenticateToken, upload.single('profileImage'), async (req, res) => {
-  try {
-    const newProfile = new Profile({
-      userId: req.user.id, // Associate profile with the authenticated user
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      email: req.body.email,
-      password: req.body.password, // Ensure this is hashed
-      phoneNumber: req.body.phoneNumber,
-      profileImage: req.file ? req.file.path : undefined
-    });
+const upload = multer({ storage });
 
+// Get Profile by ID Route
+router.get('/:id', async (req, res) => {
+  try {
+    const profile = await Profile.findById(req.params.id);
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+    res.json(profile);
+  } catch (err) {
+    console.error('Error fetching profile:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create Profile Route
+router.post('/', upload.single('profileImage'), async (req, res) => {
+  try {
+    const profileData = {
+      ...req.body,
+      profileImage: req.file ? req.file.path : null,
+    };
+    const newProfile = new Profile(profileData);
     await newProfile.save();
-    res.status(201).json({ profile: newProfile });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(201).json({
+      message: 'Profile created successfully',
+      profile: newProfile,
+    });
+  } catch (err) {
+    console.error('Error creating profile:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Update profile (protected)
-router.put('/update', authenticateToken, upload.single('profileImage'), async (req, res) => {
+// Update Profile Route
+router.put('/:id', upload.single('profileImage'), async (req, res) => {
   try {
-    const updatedProfile = {
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      email: req.body.email,
-      password: req.body.password, // Ensure this is hashed
-      phoneNumber: req.body.phoneNumber,
-      profileImage: req.file ? req.file.path : req.body.profileImage
+    const profileData = {
+      ...req.body,
+      profileImage: req.file ? req.file.path : null,
     };
 
-    const profile = await Profile.findOneAndUpdate({ userId: req.user.id }, updatedProfile, { new: true });
-    if (profile) {
-      res.json({ profile });
-    } else {
-      res.status(404).json({ message: 'Profile not found' });
+    if (profileData.password) {
+      profileData.password = await bcrypt.hash(profileData.password, 10);
     }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+
+    const updatedProfile = await Profile.findByIdAndUpdate(req.params.id, profileData, { new: true });
+    if (!updatedProfile) return res.status(404).json({ message: 'Profile not found' });
+
+    res.json({
+      message: 'Profile updated successfully',
+      profile: updatedProfile,
+    });
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Delete profile (protected)
-router.delete('/delete', authenticateToken, async (req, res) => {
+// Delete Profile Route
+router.delete('/:id', async (req, res) => {
   try {
-    const result = await Profile.deleteOne({ userId: req.user.id });
-    if (result.deletedCount > 0) {
-      res.json({ message: 'Profile removed successfully' });
-    } else {
-      res.status(404).json({ message: 'Profile not found' });
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    const profile = await Profile.findByIdAndDelete(req.params.id);
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+    res.json({ message: 'Profile deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting profile:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

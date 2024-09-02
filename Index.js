@@ -4,7 +4,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const User = require('./models/User'); 
-const Profile = require('./models/Profile'); 
+// const Profile = require('./models/Profile'); 
 const app1 = express();
 const multer = require('multer');
 const path = require('path');
@@ -69,7 +69,8 @@ app1.post('/api/auth/login', async (req, res) => {
   try {
     const user = await User.findOne({ email });
     if (user && await bcrypt.compare(password, user.password)) {
-      res.status(200).json({ message: 'Login successful' });
+      // Assuming `user` has a property `_id`
+      res.status(200).json({ message: 'Login successful', data: { _id: user._id } });
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -80,12 +81,18 @@ app1.post('/api/auth/login', async (req, res) => {
 });
 
 
-app1.get('/api/profile', async (req, res) => {
+
+app1.get('/api/users/:id', async (req, res) => {
   try {
-    const profiles = await Profile.find();
-    res.json(profiles);
+    const user = await User.findById(req.params.id);
+    if (user) {
+      res.status(200).json(user);
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching user details:', err);
+    res.status(500).json({ message: 'Server error fetching user details', error: err.message });
   }
 });
 
@@ -108,49 +115,45 @@ app1.post('/api/profile', upload.single('profileImage'), async (req, res) => {
 });
 
 
-app1.put('/api/profile/:id', upload.single('profileImage'), async (req, res) => {
+app1.put('/api/users/:id', upload.single('profileImage'), async (req, res) => {
   try {
-    const profileData = {
-      ...req.body,
-      profileImage: req.file ? req.file.path : null,
-    };
+    const { name, email, password } = req.body;
+    const userId = req.params.id;
 
-    if (profileData.password) {
-      profileData.password = await bcrypt.hash(profileData.password, 10);
+   
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+   
+    user.name = name || user.name;
+    user.email = email || user.email;
+    if (password) {
+      user.password = await bcrypt.hash(password, 10);
+    }
+    if (req.file) {
+      user.profileImage = req.file.path; 
     }
 
-    const updatedProfile = await Profile.findByIdAndUpdate(req.params.id, profileData, { new: true });
-    if (!updatedProfile) return res.status(404).json({ message: 'Profile not found' });
-
-    res.json({
-      message: 'Profile updated successfully',
-      profile: updatedProfile,
-    });
+    await user.save();
+    res.json({ message: 'Profile updated successfully', user });
   } catch (err) {
-    console.error('Error updating profile:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app1.delete('/api/profile/:id', async (req, res) => {
-  try {
-    await Profile.findByIdAndDelete(req.params.id);
-    res.status(204).send();
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error updating user:', err);
+    res.status(500).json({ message: 'Server error during update', error: err.message });
   }
 });
 
 
-// Delete User Profile
-app1.delete('/api/profile/:id', async (req, res) => {
+// Delete user profile
+app1.delete('/api/users/:id', async (req, res) => {
   try {
-    const profile = await Profile.findByIdAndDelete(req.params.id);
-    if (!profile) return res.status(404).json({ message: 'User not found' });
-    res.json({ message: 'User deleted successfully' });
+    const userId = req.params.id;
+    const user = await User.findByIdAndDelete(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json({ message: 'Profile deleted successfully' });
   } catch (err) {
-    console.error('Error deleting profile:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    console.error('Error deleting user:', err);
+    res.status(500).json({ message: 'Server error during delete', error: err.message });
   }
 });
 
