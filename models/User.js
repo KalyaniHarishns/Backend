@@ -16,8 +16,11 @@ const UserSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true
+  },
+  profileImage: { 
+    type: String,
+   
   }
-  
 });
 
 // Hash password before saving the user
@@ -29,7 +32,8 @@ UserSchema.pre('save', async function (next) {
   next();
 });
 
+
 // Create a model using the schema
-const User = mongoose.model('User', UserSchema);
+const User = mongoose.model('Userdetails', UserSchema);
 
 module.exports = User;

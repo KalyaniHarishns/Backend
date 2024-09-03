@@ -1,43 +1,62 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const cors = require('cors');
+const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const User = require('./models/User'); 
-// const Profile = require('./models/Profile'); 
-const app1 = express();
+const jwt = require('jsonwebtoken');
 const multer = require('multer');
-const path = require('path');
+const User = require('./models/User'); // Make sure to create this model
+
+const app = express();
 const port = process.env.PORT || 3001;
 
-app1.use(express.json());
-app1.use(cors({
-  origin: 'http://localhost:3000' 
-}));
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({ storage });
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/demo';
-mongoose.connect(MONGO_URI, {
+app.use(bodyParser.json());
+app.use(cors());
+mongoose.connect('mongodb://localhost:27017/demo', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB connection error:', err));
 
-app1.use(bodyParser.json());
+// Multer setup
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/'); 
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname); 
+  }
+});
+const upload = multer({ storage: storage });
 
+app.post("/studylogins", async (req, res) => {
+  console.log('Login endpoint hit');
+  const { email, password } = req.body;
 
-app1.post('/api/auth/signup', async (req, res) => {
+  try {
+    const user = await User.findOne({ email });
+    console.log(user);
+
+    if (user) {
+      res.status(200).json({ message: 'Login successful', userId: user._id });
+    } else {
+      res.status(401).json({ message: 'Invalid email or password' });
+    }
+  } catch (err) {
+    console.error('Error during login:', err);
+    res.status(500).json({ message: 'Server error during login', error: err.message });
+  }
+});
+
+app.post("/studysignups", async (req, res) => 
+  {
   const { name, email, password } = req.body;
-  
+  const imagePath=null;
+console.log(email);
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'All fields are required.' });
+  }
   if (password.length < 6) {
     return res.status(400).json({ message: 'Password should have a minimum of 6 characters.' });
   }
@@ -52,37 +71,15 @@ app1.post('/api/auth/signup', async (req, res) => {
   }
 
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ name, email, password: hashedPassword });
-    await user.save();
-    res.status(201).json(user);
+    const sp = await User.create({ name, email, password ,imagePath});
+    res.status(201).json(sp);
   } catch (err) {
-    console.error('Error creating user:', err);
-    res.status(400).json({ message: 'Error creating user', error: err.message });
+    console.error('Error creating signup:', err); 
+    res.status(400).json({ message: 'Error creating signup', error: err.message });
   }
 });
 
-
-app1.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-    if (user && await bcrypt.compare(password, user.password)) {
-      // Assuming `user` has a property `_id`
-      res.status(200).json({ message: 'Login successful', data: { _id: user._id } });
-    } else {
-      res.status(401).json({ message: 'Invalid email or password' });
-    }
-  } catch (err) {
-    console.error('Error during login:', err);
-    res.status(500).json({ message: 'Server error during login', error: err.message });
-  }
-});
-
-
-
-app1.get('/api/users/:id', async (req, res) => {
+app.get('/api/users/:id', async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (user) {
@@ -96,13 +93,13 @@ app1.get('/api/users/:id', async (req, res) => {
   }
 });
 
-app1.post('/api/profile', upload.single('profileImage'), async (req, res) => {
+app.post('/api/profile', upload.single('profileImage'), async (req, res) => {
   try {
     const profileData = {
       ...req.body,
       profileImage: req.file ? req.file.path : null,
     };
-    const newProfile = new Profile(profileData);
+    const newProfile = new Profile(profileData); // Ensure Profile model is defined
     await newProfile.save();
     res.status(201).json({
       message: 'Profile created successfully',
@@ -114,24 +111,23 @@ app1.post('/api/profile', upload.single('profileImage'), async (req, res) => {
   }
 });
 
-
-app1.put('/api/users/:id', upload.single('profileImage'), async (req, res) => {
+app.put('/api/users/:id', upload.single('profileImage'), async (req, res) => {
   try {
     const { name, email, password } = req.body;
     const userId = req.params.id;
 
-   
+    // Find the user by ID
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-   
+    // Update user details
     user.name = name || user.name;
     user.email = email || user.email;
     if (password) {
       user.password = await bcrypt.hash(password, 10);
     }
     if (req.file) {
-      user.profileImage = req.file.path; 
+      user.profileImage = req.file.path; // Update profile image path
     }
 
     await user.save();
@@ -142,9 +138,8 @@ app1.put('/api/users/:id', upload.single('profileImage'), async (req, res) => {
   }
 });
 
-
 // Delete user profile
-app1.delete('/api/users/:id', async (req, res) => {
+app.delete('/api/users/:id', async (req, res) => {
   try {
     const userId = req.params.id;
     const user = await User.findByIdAndDelete(userId);
@@ -157,6 +152,6 @@ app1.delete('/api/users/:id', async (req, res) => {
   }
 });
 
-app1.listen(port, () => {
+app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}/`);
 });
