@@ -5,7 +5,8 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
-const User = require('./models/User'); // Make sure to create this model
+const User = require('./models/User'); 
+const path = require("path");
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -18,8 +19,8 @@ mongoose.connect('mongodb://localhost:27017/demo', {
 })
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB connection error:', err));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Multer setup
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/'); 
@@ -31,15 +32,17 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 app.post("/studylogins", async (req, res) => {
-  console.log('Login endpoint hit');
   const { email, password } = req.body;
 
   try {
     const user = await User.findOne({ email });
-    console.log(user);
-
     if (user) {
-      res.status(200).json({ message: 'Login successful', userId: user._id });
+      res.status(200).json({
+        message: 'Login successful',
+        userId: user._id,
+        username: user.name,
+        email: user.email 
+      });
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -48,6 +51,10 @@ app.post("/studylogins", async (req, res) => {
     res.status(500).json({ message: 'Server error during login', error: err.message });
   }
 });
+
+
+
+
 
 app.post("/studysignups", async (req, res) => 
   {
@@ -83,6 +90,7 @@ app.get('/api/users/:id', async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (user) {
+      console.log(user)
       res.status(200).json(user);
     } else {
       res.status(404).json({ message: 'User not found' });
@@ -99,7 +107,7 @@ app.post('/api/profile', upload.single('profileImage'), async (req, res) => {
       ...req.body,
       profileImage: req.file ? req.file.path : null,
     };
-    const newProfile = new Profile(profileData); // Ensure Profile model is defined
+    const newProfile = new Profile(profileData); 
     await newProfile.save();
     res.status(201).json({
       message: 'Profile created successfully',
@@ -116,18 +124,18 @@ app.put('/api/users/:id', upload.single('profileImage'), async (req, res) => {
     const { name, email, password } = req.body;
     const userId = req.params.id;
 
-    // Find the user by ID
+    
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Update user details
+    
     user.name = name || user.name;
     user.email = email || user.email;
     if (password) {
       user.password = await bcrypt.hash(password, 10);
     }
     if (req.file) {
-      user.profileImage = req.file.path; // Update profile image path
+      user.profileImage = req.file.path; 
     }
 
     await user.save();

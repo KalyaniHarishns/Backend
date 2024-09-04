@@ -18,12 +18,13 @@ const UserSchema = new mongoose.Schema({
     required: true
   },
   profileImage: { 
-    type: String,
+    type: String
+  }, 
    
-  }
+  
 });
 
-// Hash password before saving the user
+
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
 
@@ -33,7 +34,7 @@ UserSchema.pre('save', async function (next) {
 });
 
 
-// Create a model using the schema
+
 const User = mongoose.model('Userdetails', UserSchema);
 
 module.exports = User;
