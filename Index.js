@@ -21,6 +21,9 @@ mongoose.connect('mongodb://localhost:27017/demo', {
 .catch(err => console.error('MongoDB connection error:', err));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+
+
+// Multer storage configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/'); 
@@ -30,6 +33,8 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage: storage });
+
+
 
 app.post("/studylogins", async (req, res) => {
   const { email, password } = req.body;
@@ -124,18 +129,17 @@ app.put('/api/users/:id', upload.single('profileImage'), async (req, res) => {
     const { name, email, password } = req.body;
     const userId = req.params.id;
 
-    
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    
     user.name = name || user.name;
     user.email = email || user.email;
     if (password) {
       user.password = await bcrypt.hash(password, 10);
     }
     if (req.file) {
-      user.profileImage = req.file.path; 
+      // Format path to use forward slashes
+      user.profileImage = req.file.path.replace(/\\/g, '/'); 
     }
 
     await user.save();
@@ -146,7 +150,8 @@ app.put('/api/users/:id', upload.single('profileImage'), async (req, res) => {
   }
 });
 
-// Delete user profile
+
+
 app.delete('/api/users/:id', async (req, res) => {
   try {
     const userId = req.params.id;
